@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="MediBook.Api/MediBook.Api.csproj" />
+  <Project Path="MediBook.Application/MediBook.Application.csproj" />
+  <Project Path="MediBook.Domain/MediBook.Domain.csproj" />
+  <Project Path="MediBook.Infrustructure/MediBook.Infrustructure.csproj" />
+  <Project Path="MediBook.Test/MediBook.Test.csproj" Id="ceab46a9-c9a3-4fb9-b9fe-03f299dddd90" />
+</Solution>
