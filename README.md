@@ -1,6 +1,6 @@
 # MediBook — Clinic Appointment & Practice Management API
 
-MediBook is a production-style .NET 8 Web API for managing clinic operations — 
+MediBook is a production-style .NET 10 Web API for managing clinic operations — 
 patients, doctors, multi-location clinics, appointment scheduling, and role-based 
 authentication. Built as a hands-on backend engineering exercise following 
 Clean Architecture principles, with every design decision (domain modeling, 
