@@ -23,7 +23,12 @@ namespace MediBook.Infrustructure
         public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddDbContext<MediBookDbContext>(options =>options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
-            
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = configuration["Redis:ConnectionString"];
+            });
+
+
             services.AddScoped<IPatientRepository, PatientRepository>();
             services.AddScoped<IPatientService, PatientService>();
             services.AddScoped<IDoctorRepository, DoctorRepository>();

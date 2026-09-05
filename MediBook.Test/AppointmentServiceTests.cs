@@ -111,15 +111,7 @@ namespace MediBook.Test
             };
         }
 
-        private static AppointmentService CreateSut(
-            Mock<IAppointmentRepository> appointmentRepository,
-            Mock<IDoctorRepository> doctorRepository,
-            Mock<IPatientRepository> patientRepository,
-            Mock<IClinicLocationRepository> clinicLocationRepository,
-            Mock<IAppointmentTypeRepository> appointmentTypeRepository,
-            Mock<IDoctorClinicAssignmentRepository> doctorClinicAssignmentRepository,
-            Mock<IDoctorWorkingHourRepository> doctorWorkingHourRepository,
-            Mock<IUnitOfWork> unitOfWork)
+        private static AppointmentService CreateSut(Mock<IAppointmentRepository> appointmentRepository,Mock<IDoctorRepository> doctorRepository,Mock<IPatientRepository> patientRepository,Mock<IClinicLocationRepository> clinicLocationRepository,Mock<IAppointmentTypeRepository> appointmentTypeRepository,Mock<IDoctorClinicAssignmentRepository> doctorClinicAssignmentRepository,Mock<IDoctorWorkingHourRepository> doctorWorkingHourRepository,Mock<IUnitOfWork> unitOfWork)
         {
             return new AppointmentService(
                 appointmentRepository.Object,

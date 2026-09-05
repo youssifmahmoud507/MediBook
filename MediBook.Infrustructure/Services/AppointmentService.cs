@@ -7,11 +7,13 @@ using MediBook.Domain.Entities;
 using MediBook.Domain.Enums;
 using MediBook.Infrustructure.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Numerics;
 using System.Text;
+using System.Text.Json;
 
 namespace MediBook.Infrustructure.Services
 {
@@ -22,7 +24,8 @@ namespace MediBook.Infrustructure.Services
                                     IAppointmentTypeRepository appointmentTypeRepository,
                                     IDoctorClinicAssignmentRepository doctorClinicAssignmentRepository,
                                     IDoctorWorkingHourRepository doctorWorkingHourRepository,
-                                    IUnitOfWork unitOfWork) : IAppointmentService
+                                    IUnitOfWork unitOfWork,
+                                    IDistributedCache cache) : IAppointmentService
     {
         private readonly IAppointmentRepository _appointmentRepository = appointmentRepository;
         private readonly IDoctorRepository _doctorRepository = doctorRepository;
@@ -32,6 +35,7 @@ namespace MediBook.Infrustructure.Services
         private readonly IDoctorClinicAssignmentRepository _doctorClinicAssignmentRepository = doctorClinicAssignmentRepository;
         private readonly IDoctorWorkingHourRepository _doctorWorkingHourRepository = doctorWorkingHourRepository;
         private readonly IUnitOfWork _unitOfWork = unitOfWork;
+        private readonly IDistributedCache _distributedCache = cache;
 
         public async Task<Result<Guid>> CreateAppointmentAsync(CreateAppointmentRequest request, CancellationToken cancellationToken)
         {
@@ -190,9 +194,17 @@ namespace MediBook.Infrustructure.Services
 
             return Result.Success();
         }
-
         public async Task<Result<List<AvailableSlotResponse>>> GetAvailableSlotsAsync(Guid doctorId, GetAvailableSlotsRequest request, CancellationToken cancellationToken)
         {
+            var cacheKey = $"available-slots:{doctorId}:{request.ClinicLocationId}:{request.AppointmentTypeId}:{request.Date:yyyy-MM-dd}";
+
+            var cachedResult = await _distributedCache.GetStringAsync(cacheKey, cancellationToken);
+            if (cachedResult is not null)
+            {
+                var cachedSlots = JsonSerializer.Deserialize<List<AvailableSlotResponse>>(cachedResult)!;
+                return Result<List<AvailableSlotResponse>>.Success(cachedSlots);
+            }
+
             /*Existence checks: Doctor, ClinicLocation, AppointmentType (same pattern as Appointment creation — you know this cold now).*/
             var doctorExists = await _doctorRepository.GetByIdAsync(doctorId, cancellationToken);
             if (doctorExists is null)
@@ -228,7 +240,6 @@ namespace MediBook.Infrustructure.Services
             {
                 return Result<List<AvailableSlotResponse>>.Failure($"AppointmentType with ID {request.AppointmentTypeId} is not active.", ErrorType.NotFound);
             }
-
             /*Determine the day-of-week from request.Date directly (request.Date.DayOfWeek) — no timezone conversion needed here, since you're working from a plain calendar date, not an instant. Note this is different from Appointment creation, where you converted an instant into local time; here you're starting from a local calendar date already.*/
             var dayOfWeek = request.Date.DayOfWeek;
 
@@ -271,6 +282,13 @@ namespace MediBook.Infrustructure.Services
 
             /*Filter out any candidate whose [start, start+duration) overlaps any existing appointment (reuse the overlap formula).*/
             availableSlots = [.. availableSlots.Where(slot => slot.StartTime > DateTimeOffset.UtcNow).Where(slot => !existingAppointments.Any(app => app.StartTime < slot.EndTime && app.EndTime > slot.StartTime))];
+
+            var json = JsonSerializer.Serialize(availableSlots);
+            await _distributedCache.SetStringAsync(cacheKey, json, new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30)
+            }, cancellationToken);
+
             return Result<List<AvailableSlotResponse>>.Success(availableSlots);
         }
     }
