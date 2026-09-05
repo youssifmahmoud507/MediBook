@@ -1,8 +1,10 @@
 ﻿using MediBook.Application.Common;
 using MediBook.Infrustructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Text;
 
 namespace MediBook.Infrustructure.Common
@@ -12,9 +14,9 @@ namespace MediBook.Infrustructure.Common
         private readonly MediBookDbContext _context = context;
         private IDbContextTransaction? _transaction;
 
-        public async Task BeginTransactionAsync(CancellationToken cancellationToken)
+        public async Task BeginTransactionAsync(CancellationToken cancellationToken, IsolationLevel isolationLevel = IsolationLevel.ReadCommitted)
         {
-            _transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            _transaction = await _context.Database.BeginTransactionAsync(isolationLevel, cancellationToken);
         }
 
         public async Task CommitTransactionAsync(CancellationToken cancellationToken)

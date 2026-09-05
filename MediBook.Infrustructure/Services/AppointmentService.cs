@@ -5,8 +5,11 @@ using MediBook.Application.Interfaces;
 using MediBook.Application.Services;
 using MediBook.Domain.Entities;
 using MediBook.Domain.Enums;
+using MediBook.Infrustructure.Common;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Numerics;
 using System.Text;
 
@@ -18,7 +21,8 @@ namespace MediBook.Infrustructure.Services
                                     IClinicLocationRepository clinicLocationRepository,
                                     IAppointmentTypeRepository appointmentTypeRepository,
                                     IDoctorClinicAssignmentRepository doctorClinicAssignmentRepository,
-                                    IDoctorWorkingHourRepository doctorWorkingHourRepository) : IAppointmentService
+                                    IDoctorWorkingHourRepository doctorWorkingHourRepository,
+                                    IUnitOfWork unitOfWork) : IAppointmentService
     {
         private readonly IAppointmentRepository _appointmentRepository = appointmentRepository;
         private readonly IDoctorRepository _doctorRepository = doctorRepository;
@@ -27,6 +31,7 @@ namespace MediBook.Infrustructure.Services
         private readonly IAppointmentTypeRepository _appointmentTypeRepository = appointmentTypeRepository;
         private readonly IDoctorClinicAssignmentRepository _doctorClinicAssignmentRepository = doctorClinicAssignmentRepository;
         private readonly IDoctorWorkingHourRepository _doctorWorkingHourRepository = doctorWorkingHourRepository;
+        private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
         public async Task<Result<Guid>> CreateAppointmentAsync(CreateAppointmentRequest request, CancellationToken cancellationToken)
         {
@@ -99,38 +104,50 @@ namespace MediBook.Infrustructure.Services
             }
 
 
-            var existingAppointments = await _appointmentRepository.GetByDoctorAndDateAsync(request.DoctorId,DateOnly.FromDateTime(localStart.DateTime),cancellationToken);
+            await _unitOfWork.BeginTransactionAsync(cancellationToken, IsolationLevel.Serializable);
 
-            var hasConflict = existingAppointments.Any(existingAppointment =>
-                request.StartTime < existingAppointment.EndTime &&
-                existingAppointment.StartTime < endTime);
-
-            if (hasConflict)
+            try
             {
-                return Result<Guid>.Failure(
-                    "The doctor already has an appointment during this time.",
-                    ErrorType.Conflict);
+                var existingAppointments = await _appointmentRepository.GetByDoctorAndDateAsync(
+                    request.DoctorId, DateOnly.FromDateTime(localStart.DateTime), cancellationToken);
+
+                var hasConflict = existingAppointments.Any(existing =>
+                    request.StartTime < existing.EndTime && existing.StartTime < endTime);
+
+                if (hasConflict)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return Result<Guid>.Failure("The doctor already has an appointment during this time.", ErrorType.Conflict);
+                }
+
+                var appointment = new Appointment
+                {
+                    Id = Guid.NewGuid(),
+                    DoctorId = request.DoctorId,
+                    PatientId = request.PatientId,
+                    ClinicLocationId = request.ClinicLocationId,
+                    AppointmentTypeId = request.AppointmentTypeId,
+                    StartTime = request.StartTime,
+                    EndTime = endTime,
+                    Status = AppointmentStatus.Confirmed,
+                    CreatedAt = DateTimeOffset.UtcNow
+                };
+
+                await _appointmentRepository.AddAsync(appointment, cancellationToken);
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+                return Result<Guid>.Success(appointment.Id);
             }
-
-
-
-
-            var appointment = new Appointment
+            catch (DbUpdateException)
             {
-
-                Id = Guid.NewGuid(),
-                DoctorId = request.DoctorId,
-                PatientId = request.PatientId,
-                ClinicLocationId = request.ClinicLocationId,
-                AppointmentTypeId = request.AppointmentTypeId,
-                StartTime = request.StartTime,
-                EndTime = endTime,
-                Status = AppointmentStatus.Confirmed,
-                CreatedAt = DateTimeOffset.UtcNow
-            };
-
-            await _appointmentRepository.AddAsync(appointment, cancellationToken);
-            return Result<Guid>.Success(appointment.Id);
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return Result<Guid>.Failure("This time slot was just booked by someone else. Please try a different time.", ErrorType.Conflict);
+            }
+            catch (Exception)
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                throw;
+            }
         }
         public async Task<Result<AppointmentResponse>> GetAppointmentByIdAsync(Guid id,CancellationToken cancellationToken)
         {
