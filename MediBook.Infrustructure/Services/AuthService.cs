@@ -15,7 +15,7 @@ using System.Text;
 
 namespace MediBook.Infrustructure.Services
 {
-    public class AuthService(UserManager<ApplicationUser> userManager, IPatientRepository patientRepository, IDoctorRepository doctorRepository , IJwtTokenGenerator jwtTokenGenerator , IRefreshTokenRepository refreshTokenRepository , IConfiguration configuration) : IAuthService
+    public class AuthService(UserManager<ApplicationUser> userManager, IPatientRepository patientRepository, IDoctorRepository doctorRepository , IJwtTokenGenerator jwtTokenGenerator , IRefreshTokenRepository refreshTokenRepository , IConfiguration configuration , IUnitOfWork unitOfWork) : IAuthService
     {
         private readonly UserManager<ApplicationUser> _userManager = userManager;
         private readonly IPatientRepository _patientRepository = patientRepository;
@@ -23,11 +23,10 @@ namespace MediBook.Infrustructure.Services
         private readonly IJwtTokenGenerator _jwtTokenGenerator = jwtTokenGenerator;
         private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
         private readonly IConfiguration _configuration = configuration;
-
+        private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
         public async Task<Result<Guid>> RegisterDoctorAsync(RegisterDoctorRequest request, CancellationToken cancellationToken)
         {
-            /*string Email,string Password,string FirstName,string LastName,string PhoneNumber,string LicenseNumber*/
             if (string.IsNullOrEmpty(request.Email))
                 return Result<Guid>.Failure("Email cannot be null or empty.", ErrorType.Validation);
             if (string.IsNullOrEmpty(request.Password))
@@ -40,51 +39,61 @@ namespace MediBook.Infrustructure.Services
                 return Result<Guid>.Failure("Phone cannot be null or empty.", ErrorType.Validation);
             if (string.IsNullOrEmpty(request.LicenseNumber))
                 return Result<Guid>.Failure("License number cannot be null or empty.", ErrorType.Validation);
-            
+
             var licenseNumberExists = await _doctorRepository.ExistsWithLicenseNumberAsync(request.LicenseNumber, cancellationToken);
             if (licenseNumberExists)
                 return Result<Guid>.Failure("A doctor with the same license number already exists.", ErrorType.Conflict);
 
-            var user = new ApplicationUser
-            {
-                Id = Guid.NewGuid(),
-                UserName = request.Email,
-                Email = request.Email
-            };
+            await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
-            var createResult = await _userManager.CreateAsync(user, request.Password);
-            if (!createResult.Succeeded)
+            try
             {
-                var errorMessage = string.Join("; ", createResult.Errors.Select(e => e.Description));
-                return Result<Guid>.Failure(errorMessage, ErrorType.Validation);
+                var user = new ApplicationUser
+                {
+                    Id = Guid.NewGuid(),
+                    UserName = request.Email,
+                    Email = request.Email
+                };
+
+                var createResult = await _userManager.CreateAsync(user, request.Password);
+                if (!createResult.Succeeded)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    var errorMessage = string.Join("; ", createResult.Errors.Select(e => e.Description));
+                    return Result<Guid>.Failure(errorMessage, ErrorType.Validation);
+                }
+
+                var roleResult = await _userManager.AddToRoleAsync(user, "Doctor");
+                if (!roleResult.Succeeded)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    var errorMessage = string.Join("; ", roleResult.Errors.Select(e => e.Description));
+                    return Result<Guid>.Failure(errorMessage, ErrorType.Validation);
+                }
+
+                var doctor = new Doctor
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    FirstName = request.FirstName,
+                    LastName = request.LastName,
+                    PhoneNumber = request.PhoneNumber,
+                    LicenseNumber = request.LicenseNumber,
+                    Email = request.Email,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    IsActive = true
+                };
+
+                await _doctorRepository.AddAsync(doctor, cancellationToken);
+
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
+                return Result<Guid>.Success(doctor.Id);
             }
-
-
-
-            var roleResult = await _userManager.AddToRoleAsync(user, "Doctor");
-            if (!roleResult.Succeeded)
+            catch (Exception ex)
             {
-                var errorMessage = string.Join("; ", roleResult.Errors.Select(e => e.Description));
-                return Result<Guid>.Failure(
-                    $"User account created but role assignment failed: {errorMessage}. Manual cleanup required.", ErrorType.Failure);
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return Result<Guid>.Failure($"An unexpected error occurred during registration. {ex}", ErrorType.Validation);
             }
-
-            var doctor = new Doctor
-            {
-                Id = Guid.NewGuid(),
-                UserId = user.Id,
-                FirstName = request.FirstName,
-                LastName = request.LastName,
-                PhoneNumber = request.PhoneNumber,
-                LicenseNumber = request.LicenseNumber,
-                Email = request.Email,
-                CreatedAt = DateTimeOffset.UtcNow,
-                IsActive = true
-            };
-
-            await _doctorRepository.AddAsync(doctor, cancellationToken);
-
-            return Result<Guid>.Success(doctor.Id);
         }
 
         public async Task<Result<Guid>> RegisterPatientAsync(RegisterPatientRequest request, CancellationToken cancellationToken)
@@ -106,38 +115,51 @@ namespace MediBook.Infrustructure.Services
                 UserName = request.Email,
                 Email = request.Email
             };
+            
+            
+            await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
-            var createResult = await _userManager.CreateAsync(user, request.Password);
-            if (!createResult.Succeeded)
+            try
             {
-                var errorMessage = string.Join("; ", createResult.Errors.Select(e => e.Description));
-                return Result<Guid>.Failure(errorMessage, ErrorType.Validation);
+                var createResult = await _userManager.CreateAsync(user, request.Password);
+                if (!createResult.Succeeded)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    var errorMessage = string.Join("; ", createResult.Errors.Select(e => e.Description));
+                    return Result<Guid>.Failure(errorMessage, ErrorType.Validation);
+                }
+
+                var roleResult = await _userManager.AddToRoleAsync(user, "Patient");
+                if (!roleResult.Succeeded)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    var errorMessage = string.Join("; ", roleResult.Errors.Select(e => e.Description));
+                    return Result<Guid>.Failure(errorMessage, ErrorType.Validation);
+                }
+
+                var patient = new Patient
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    FirstName = request.FirstName,
+                    LastName = request.LastName,
+                    PhoneNumber = request.PhoneNumber,
+                    DateOfBirth = request.DateOfBirth,
+                    Email = request.Email,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    IsActive = true
+                };
+
+                await _patientRepository.CreatePatientAsync(patient, cancellationToken);
+
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
+                return Result<Guid>.Success(patient.Id);
             }
-
-            var roleResult = await _userManager.AddToRoleAsync(user, "Patient");
-            if (!roleResult.Succeeded)
+            catch (Exception ex)
             {
-                var errorMessage = string.Join("; ", roleResult.Errors.Select(e => e.Description));
-                return Result<Guid>.Failure(
-                    $"User account created but role assignment failed: {errorMessage}. Manual cleanup required.", ErrorType.Failure);
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return Result<Guid>.Failure($"An unexpected error occurred during registration. {ex}", ErrorType.Validation);
             }
-
-            var patient = new Patient
-            {
-                Id = Guid.NewGuid(),
-                UserId = user.Id,
-                FirstName = request.FirstName,
-                LastName = request.LastName,
-                PhoneNumber = request.PhoneNumber,
-                DateOfBirth = request.DateOfBirth,
-                Email = request.Email,
-                CreatedAt = DateTimeOffset.UtcNow,
-                IsActive = true
-            };
-
-            await _patientRepository.CreatePatientAsync(patient, cancellationToken);
-
-            return Result<Guid>.Success(patient.Id);
         }
 
         public async Task<Result<AuthResponse>> LoginAsync(LoginRequest request, CancellationToken cancellationToken)

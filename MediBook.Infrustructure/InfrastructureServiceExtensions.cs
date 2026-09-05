@@ -1,5 +1,7 @@
-﻿using MediBook.Application.Interfaces;
+﻿using MediBook.Application.Common;
+using MediBook.Application.Interfaces;
 using MediBook.Application.Services;
+using MediBook.Infrustructure.Common;
 using MediBook.Infrustructure.Data;
 using MediBook.Infrustructure.Identity;
 using MediBook.Infrustructure.Identity.implementation;
@@ -45,6 +47,7 @@ namespace MediBook.Infrustructure
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
             services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
 
             return services;
         }
