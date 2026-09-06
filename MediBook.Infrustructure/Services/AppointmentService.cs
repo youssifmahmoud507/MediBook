@@ -1,4 +1,5 @@
-﻿using MediBook.Application.Common;
+﻿using Azure.Core;
+using MediBook.Application.Common;
 using MediBook.Application.DTOs.Appointments;
 using MediBook.Application.DTOs.SchedulingAndSlot;
 using MediBook.Application.Interfaces;
@@ -25,7 +26,8 @@ namespace MediBook.Infrustructure.Services
                                     IDoctorClinicAssignmentRepository doctorClinicAssignmentRepository,
                                     IDoctorWorkingHourRepository doctorWorkingHourRepository,
                                     IUnitOfWork unitOfWork,
-                                    IDistributedCache cache) : IAppointmentService
+                                    IDistributedCache cache,
+                                    INotificationService notificationService) : IAppointmentService
     {
         private readonly IAppointmentRepository _appointmentRepository = appointmentRepository;
         private readonly IDoctorRepository _doctorRepository = doctorRepository;
@@ -36,6 +38,7 @@ namespace MediBook.Infrustructure.Services
         private readonly IDoctorWorkingHourRepository _doctorWorkingHourRepository = doctorWorkingHourRepository;
         private readonly IUnitOfWork _unitOfWork = unitOfWork;
         private readonly IDistributedCache _distributedCache = cache;
+        private readonly INotificationService _notificationService = notificationService;
 
         public async Task<Result<Guid>> CreateAppointmentAsync(CreateAppointmentRequest request, CancellationToken cancellationToken)
         {
@@ -140,6 +143,16 @@ namespace MediBook.Infrustructure.Services
                 await _appointmentRepository.AddAsync(appointment, cancellationToken);
                 await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
+                if (patientExists.UserId.HasValue)
+                {
+                    await _notificationService.CreateNotificationAsync(
+                        patientExists.UserId.Value,
+                        patientExists.Email ?? "no-email@medibook.local", // Patient.Email is nullable — handle it
+                        "Appointment Confirmed",
+                        $"Your appointment on {request.StartTime:f} has been confirmed.",
+                        cancellationToken);
+                }
+
                 return Result<Guid>.Success(appointment.Id);
             }
             catch (DbUpdateException)
@@ -191,6 +204,17 @@ namespace MediBook.Infrustructure.Services
 
             appointment.Cancel(DateTimeOffset.UtcNow);
             await _appointmentRepository.UpdateAsync(appointment, cancellationToken);
+
+            var patient = await _patientRepository.GetPatientByIdAsync(appointment.PatientId, cancellationToken);
+            if (patient?.UserId.HasValue == true)
+            {
+                await _notificationService.CreateNotificationAsync(
+                    patient.UserId.Value,
+                    patient.Email ?? "no-email@medibook.local",
+                    "Appointment Cancelled",
+                    $"Your appointment on {appointment.StartTime:f} has been cancelled.",
+                    cancellationToken);
+            }
 
             return Result.Success();
         }

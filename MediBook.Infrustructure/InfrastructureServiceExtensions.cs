@@ -54,6 +54,9 @@ namespace MediBook.Infrustructure
             services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
             services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
+            services.AddScoped<IEmailSender, FakeEmailSender>();
+            services.AddScoped<INotificationRepository, NotificationRepository>();
+
 
             services.AddHostedService<AppointmentCompletionBackgroundService>();
 

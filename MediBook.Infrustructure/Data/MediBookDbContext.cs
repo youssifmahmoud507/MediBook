@@ -27,5 +27,6 @@ namespace MediBook.Infrustructure.Data
         public DbSet<Patient> Patients { get; set; }
         public DbSet<Specialty> Specialties { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
     }
 }
