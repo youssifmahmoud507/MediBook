@@ -56,7 +56,7 @@ namespace MediBook.Infrustructure
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IEmailSender, FakeEmailSender>();
             services.AddScoped<INotificationRepository, NotificationRepository>();
-
+            services.AddScoped<INotificationService, NotificationService>();
 
             services.AddHostedService<AppointmentCompletionBackgroundService>();
 
