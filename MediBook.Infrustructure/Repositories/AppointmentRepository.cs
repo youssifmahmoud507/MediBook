@@ -39,5 +39,17 @@ namespace MediBook.Infrustructure.Repositories
             _context.Appointments.Update(appointment);
             await _context.SaveChangesAsync(cancellationToken);
         }
+
+        public async Task<List<Appointment>> GetConfirmedAppointmentsPastEndTimeAsync(DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            return await _context.Appointments.Where(a => a.Status == AppointmentStatus.Confirmed && a.EndTime < now).ToListAsync(cancellationToken);
+        }
+
+        public async Task UpdateRangeAsync(List<Appointment> appointments, CancellationToken cancellationToken)
+        {
+            _context.Appointments.UpdateRange(appointments);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
     }
 }

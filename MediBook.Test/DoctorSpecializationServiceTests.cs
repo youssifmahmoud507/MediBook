@@ -266,11 +266,11 @@ namespace MediBook.Test
             var doctor = CreateDoctor(doctorId);
             var specialty = CreateSpecialty(specialtyId);
 
-            var request = new AssignSpecialtyToDoctorRequest
-            (
-                SpecialtyId: specialtyId,
-                IsPrimary: true
-            );
+            var request = new AssignSpecialtyToDoctorRequest(
+                specialtyId,
+                false);
+
+            Assert.False(request.IsPrimary);
 
             _doctorRepository
                 .Setup(x => x.GetByIdAsync(
@@ -310,12 +310,12 @@ namespace MediBook.Test
                 CancellationToken.None);
 
             Assert.True(result.IsSuccess);
-
             Assert.NotNull(addedSpecialization);
 
-            Assert.False(addedSpecialization!.IsPrimary);
+            Assert.Equal(doctorId, addedSpecialization!.DoctorId);
+            Assert.Equal(specialtyId, addedSpecialization.SpecializationId);
+            Assert.False(addedSpecialization.IsPrimary);
         }
-
         // =========================================================
         // Helpers
         // =========================================================

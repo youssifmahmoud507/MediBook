@@ -11,5 +11,7 @@ namespace MediBook.Application.Interfaces
         Task<Appointment?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
         Task<List<Appointment>> GetByDoctorAndDateAsync(Guid doctorId, DateOnly date, CancellationToken cancellationToken);
         Task UpdateAsync(Appointment appointment, CancellationToken cancellationToken);
+        Task<List<Appointment>> GetConfirmedAppointmentsPastEndTimeAsync(DateTimeOffset date , CancellationToken cancellationToken);
+        Task UpdateRangeAsync(List<Appointment> appointments, CancellationToken cancellationToken);
     }
 }

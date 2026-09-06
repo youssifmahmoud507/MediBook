@@ -84,9 +84,9 @@ namespace MediBook.Infrustructure.Services
 
             var clinicTimeZone = TimeZoneInfo.FindSystemTimeZoneById(clinicLocationExists.TimeZoneId);
 
-            var localStart = TimeZoneInfo.ConvertTime(request.StartTime,clinicTimeZone);
+            var localStart = TimeZoneInfo.ConvertTime(request.StartTime, clinicTimeZone);
 
-            var localEnd = TimeZoneInfo.ConvertTime(endTime,clinicTimeZone);
+            var localEnd = TimeZoneInfo.ConvertTime(endTime, clinicTimeZone);
 
             if (localStart.Date != localEnd.Date)
             {
@@ -98,13 +98,13 @@ namespace MediBook.Infrustructure.Services
             var localStartTime = TimeOnly.FromDateTime(localStart.DateTime);
             var localEndTime = TimeOnly.FromDateTime(localEnd.DateTime);
 
-            var workingHours = await _doctorWorkingHourRepository.GetByDoctorAndDayAsync( request.DoctorId, localDayOfWeek,cancellationToken);
+            var workingHours = await _doctorWorkingHourRepository.GetByDoctorAndDayAsync(request.DoctorId, localDayOfWeek, cancellationToken);
 
             var isWithinWorkingHours = workingHours.Any(workingHour => workingHour.StartTime <= localStartTime && localEndTime <= workingHour.EndTime);
 
             if (!isWithinWorkingHours)
             {
-                return Result<Guid>.Failure("The appointment time is outside the doctor's working hours.",ErrorType.Validation);
+                return Result<Guid>.Failure("The appointment time is outside the doctor's working hours.", ErrorType.Validation);
             }
 
 
@@ -153,13 +153,13 @@ namespace MediBook.Infrustructure.Services
                 throw;
             }
         }
-        public async Task<Result<AppointmentResponse>> GetAppointmentByIdAsync(Guid id,CancellationToken cancellationToken)
+        public async Task<Result<AppointmentResponse>> GetAppointmentByIdAsync(Guid id, CancellationToken cancellationToken)
         {
-            var appointment = await _appointmentRepository.GetByIdAsync(id,cancellationToken);
+            var appointment = await _appointmentRepository.GetByIdAsync(id, cancellationToken);
 
             if (appointment is null)
             {
-                return Result<AppointmentResponse>.Failure($"Appointment with ID {id} does not exist.",ErrorType.NotFound);
+                return Result<AppointmentResponse>.Failure($"Appointment with ID {id} does not exist.", ErrorType.NotFound);
             }
 
             var response = new AppointmentResponse
@@ -211,13 +211,13 @@ namespace MediBook.Infrustructure.Services
             {
                 return Result<List<AvailableSlotResponse>>.Failure($"Doctor with ID {doctorId} does not exist.", ErrorType.NotFound);
             }
-            
+
             var clinicLocationExists = await _clinicLocationRepository.GetByIdAsync(request.ClinicLocationId, cancellationToken);
             if (clinicLocationExists is null)
             {
                 return Result<List<AvailableSlotResponse>>.Failure($"ClinicLocation with ID {request.ClinicLocationId} does not exist.", ErrorType.NotFound);
             }
-            
+
             var appointmentTypeExists = await _appointmentTypeRepository.GetByIdAsync(request.AppointmentTypeId, cancellationToken);
             if (appointmentTypeExists is null)
             {

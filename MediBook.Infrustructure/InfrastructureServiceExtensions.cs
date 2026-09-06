@@ -1,6 +1,7 @@
 ﻿using MediBook.Application.Common;
 using MediBook.Application.Interfaces;
 using MediBook.Application.Services;
+using MediBook.Infrustructure.BackgroundJobs;
 using MediBook.Infrustructure.Common;
 using MediBook.Infrustructure.Data;
 using MediBook.Infrustructure.Identity;
@@ -53,6 +54,8 @@ namespace MediBook.Infrustructure
             services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
             services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+            services.AddHostedService<AppointmentCompletionBackgroundService>();
 
             return services;
         }

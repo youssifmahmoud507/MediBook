@@ -20,9 +20,9 @@ namespace MediBook.Domain.Entities
 
         public DateTimeOffset StartTime { get; set; }
         public DateTimeOffset EndTime { get; set; }
-        public AppointmentStatus Status { get; set; }
+        public AppointmentStatus Status { get;  set; }
         public DateTimeOffset CreatedAt { get; set; }
-        public DateTimeOffset? CancelledAt { get; set; }
+        public DateTimeOffset? CancelledAt { get; private set; }
 
         public void Cancel(DateTimeOffset cancelledAt)
         {
@@ -31,6 +31,15 @@ namespace MediBook.Domain.Entities
 
             Status = AppointmentStatus.Cancelled;
             CancelledAt = cancelledAt;
+        }
+
+        public bool TryComplete()
+        {
+            if (Status != AppointmentStatus.Confirmed)
+                return false;
+
+            Status = AppointmentStatus.Completed;
+            return true;
         }
     }
 }
