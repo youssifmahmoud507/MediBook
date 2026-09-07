@@ -1,4 +1,6 @@
 <Solution>
+  <Folder Name="/App_Data/" />
+  <Folder Name="/App_Data/uploads/" />
   <Project Path="MediBook.Api/MediBook.Api.csproj" />
   <Project Path="MediBook.Application/MediBook.Application.csproj" />
   <Project Path="MediBook.Domain/MediBook.Domain.csproj" />
