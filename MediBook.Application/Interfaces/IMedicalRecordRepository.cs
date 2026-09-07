@@ -9,5 +9,6 @@ namespace MediBook.Application.Interfaces
     {
         Task AddAsync(MedicalRecord record, CancellationToken cancellationToken);
         Task<MedicalRecord?> GetByAppointmentIdAsync(Guid appointmentId, CancellationToken cancellationToken);
+        Task<MedicalRecord?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     }
 }

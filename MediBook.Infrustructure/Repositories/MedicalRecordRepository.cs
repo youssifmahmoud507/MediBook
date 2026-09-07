@@ -22,5 +22,9 @@ namespace MediBook.Infrustructure.Repositories
         {
             return await _context.MedicalRecords.FirstOrDefaultAsync(r => r.AppointmentId == appointmentId, cancellationToken);
         }
+        public async Task<MedicalRecord?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
+        {
+            return await _context.MedicalRecords.FindAsync([id], cancellationToken);
+        }
     }
 }
